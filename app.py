@@ -4,12 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import json
 import random
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 DATA_FILENAME = "emoji_data.json"
 
 app = FastAPI(title="Unicode-to-Emoji API (JSON stores only unicode_seq)")
 
+# ---- CORS: allow Angular dev server ----
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -22,7 +23,7 @@ app.add_middleware(
 )
 
 # In-memory store of full records loaded from JSON.
-# Each record will have keys: unicode_seq (str), movie_name (str), hint (str), emoji (computed str)
+# Each record will have keys: unicode_seq (str), emoji (computed str), movie_name (str), hint (str)
 _EMOJI_ITEMS: List[Dict[str, Any]] = []
 
 
@@ -35,12 +36,12 @@ def unicode_seq_to_emoji(seq: str) -> str:
     if not seq or not isinstance(seq, str):
         return ""
     parts = seq.split()
-    chars = []
+    chars: List[str] = []
     for token in parts:
         token = token.strip()
         if not token:
             continue
-        # allow formats: U+1F680 or 1F680 or \\u1F680
+        # allow formats: U+1F680 or 1F680 or \u1F680
         if token.upper().startswith("U+"):
             hexpart = token[2:]
         elif token.startswith("\\u") or token.startswith("\\U"):
@@ -105,6 +106,7 @@ def load_data_from_file() -> None:
 def startup_event():
     load_data_from_file()
 
+
 # -----------------------
 # Helpers
 # -----------------------
@@ -119,34 +121,49 @@ def ensure_items():
 def as_plain_text(content: str) -> Response:
     return Response(content=content, media_type="text/plain; charset=utf-8")
 
+
 # -----------------------
-# Public endpoints (single random item)
+# Root endpoint: return full processed JSON
 # -----------------------
+@app.get("/", summary="Return all processed entries from emoji_data.json")
+def root_all():
+    """
+    Returns the entire list loaded from emoji_data.json (including computed 'emoji' field).
+    Visit this URL in your browser: http://localhost:8000/
+    """
+    ensure_items()
+    return _EMOJI_ITEMS
 
 
-@app.get("/emoji", summary="Get emoji characters for one random unicode_seq (plain text)")
+# -----------------------
+# Public endpoints (three only)
+# -----------------------
+
+@app.get("/emoji", summary="Get one random emoji")
 def random_emoji():
     """
-    Returns the emoji characters converted from unicode_seq (plain text).
-    Example response body: 🚀🌕
-    Note: JSON file must contain only 'unicode_seq' (e.g. "U+1F680 U+1F315"), not emoji chars.
+    Return one random emoji (plain text), e.g.: 🚀🌕
     """
     ensure_items()
     value = random.choice(_EMOJI_ITEMS)["emoji"]
     return as_plain_text(value)
 
 
-@app.get("/movie", summary="Get one random movie name (plain text)")
+@app.get("/movie", summary="Get one random movie name")
 def random_movie():
-    """Return one random movie name as plain text (e.g. 'Sherlock Holmes')."""
+    """
+    Return one random movie name (plain text), e.g.: "Sherlock Holmes"
+    """
     ensure_items()
     value = random.choice(_EMOJI_ITEMS)["movie_name"]
     return as_plain_text(value)
 
 
-@app.get("/hint", summary="Get one random hint (plain text)")
+@app.get("/hint", summary="Get one random hint")
 def random_hint():
-    """Return one random hint as plain text (may be empty string)."""
+    """
+    Return one random hint (plain text), may be empty if not provided.
+    """
     ensure_items()
     value = random.choice(_EMOJI_ITEMS)["hint"] or ""
     return as_plain_text(value)
