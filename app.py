@@ -12,7 +12,10 @@ app = FastAPI(title="Unicode-to-Emoji API (JSON stores only unicode_seq)")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:4200",    # Angular dev server
+        "http://127.0.0.1:4200"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
